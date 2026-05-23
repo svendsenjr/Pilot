@@ -1,28 +1,32 @@
 """
-Build the Nordic property maintenance roll-up investment thesis as a
-properly formatted Word document.
+Nordic Property Maintenance Roll-Up - Screening Memo (v2, rigorous).
 
-Reframe vs. the prior markdown: this is a buy-and-build play where KLAR
-creates the platform via aggressive M&A, the same way Norvestor built PHM.
-The investable universe is anchor candidates + bolt-on supply, not
-sponsor-owned adjacent platforms.
+The reframe vs. prior draft:
+- The prior version template-filled KLAR frameworks but did not actually
+  test the thesis. It produced a "conditional proceed" that hedged the
+  hard questions.
+- This version pressure-tests the central claim ("is there a credible
+  #2 platform behind PHM"), runs the roll-up math at a realistic case
+  (not just base case), and concludes with a sharper recommendation
+  including two alternative platform constructions KLAR's portfolio
+  actually advantages us to pursue.
 """
 
 from docx import Document
-from docx.shared import Pt, Cm, RGBColor, Inches
+from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ALIGN_VERTICAL
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
 
-# --------------------------------------------------------------------------------------
-# Styling
-# --------------------------------------------------------------------------------------
 NAVY = RGBColor(0x1F, 0x3A, 0x5F)
 DARK_GREY = RGBColor(0x33, 0x33, 0x33)
 MID_GREY = RGBColor(0x66, 0x66, 0x66)
+RED = RGBColor(0xB0, 0x2A, 0x30)
+GREEN = RGBColor(0x1F, 0x6F, 0x3C)
 LIGHT_BG = "F2F4F7"
+CALLOUT_BG = "FFF5E6"
 HEADER_BG = "1F3A5F"
 HEADER_FG = RGBColor(0xFF, 0xFF, 0xFF)
 
@@ -65,30 +69,16 @@ def add_para(doc, text, size=10.5, bold=False, color=None, italic=False,
     return p
 
 
-def add_runs(doc, segments, size=10.5, space_before=0, space_after=4):
-    """segments: list of (text, bold_bool) tuples."""
-    p = doc.add_paragraph()
-    for text, bold in segments:
-        r = p.add_run(text)
-        r.font.name = "Calibri"
-        r.font.size = Pt(size)
-        r.bold = bold
-        r.font.color.rgb = DARK_GREY
-    p.paragraph_format.space_before = Pt(space_before)
-    p.paragraph_format.space_after = Pt(space_after)
-    return p
-
-
 def h1(doc, text):
-    add_para(doc, text, size=16, bold=True, color=NAVY, space_before=14, space_after=6)
+    add_para(doc, text, size=15, bold=True, color=NAVY, space_before=14, space_after=4)
 
 
 def h2(doc, text):
-    add_para(doc, text, size=13, bold=True, color=NAVY, space_before=10, space_after=4)
+    add_para(doc, text, size=12, bold=True, color=NAVY, space_before=8, space_after=2)
 
 
 def h3(doc, text):
-    add_para(doc, text, size=11.5, bold=True, color=DARK_GREY, space_before=8, space_after=3)
+    add_para(doc, text, size=11, bold=True, color=DARK_GREY, space_before=6, space_after=2)
 
 
 def body(doc, text):
@@ -105,16 +95,33 @@ def bullet(doc, text, level=0):
     r.font.color.rgb = DARK_GREY
 
 
-def build_table(doc, headers, rows, widths_cm=None):
+def callout(doc, text, color=NAVY, bg=CALLOUT_BG):
+    """Highlighted single-paragraph callout box."""
+    table = doc.add_table(rows=1, cols=1)
+    cell = table.rows[0].cells[0]
+    cell.text = ""
+    p = cell.paragraphs[0]
+    r = p.add_run(text)
+    r.font.name = "Calibri"
+    r.font.size = Pt(10.5)
+    r.font.bold = True
+    r.font.color.rgb = color
+    set_cell_bg(cell, bg)
+    set_cell_borders(cell)
+    doc.add_paragraph().paragraph_format.space_after = Pt(0)
+
+
+def build_table(doc, headers, rows, widths_cm=None, header_align_center=False):
     table = doc.add_table(rows=1 + len(rows), cols=len(headers))
     table.autofit = False
     table.allow_autofit = False
 
-    # Header row
     hdr_cells = table.rows[0].cells
     for i, h in enumerate(headers):
         hdr_cells[i].text = ""
         p = hdr_cells[i].paragraphs[0]
+        if header_align_center:
+            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         r = p.add_run(h)
         r.font.name = "Calibri"
         r.font.size = Pt(9.5)
@@ -124,7 +131,6 @@ def build_table(doc, headers, rows, widths_cm=None):
         set_cell_borders(hdr_cells[i])
         hdr_cells[i].vertical_alignment = WD_ALIGN_VERTICAL.CENTER
 
-    # Data rows
     for r_idx, row in enumerate(rows, start=1):
         cells = table.rows[r_idx].cells
         for c_idx, val in enumerate(row):
@@ -144,46 +150,41 @@ def build_table(doc, headers, rows, widths_cm=None):
             for row in table.rows:
                 row.cells[i].width = Cm(w)
 
-    # Spacing after table
     doc.add_paragraph().paragraph_format.space_after = Pt(2)
     return table
 
 
-# --------------------------------------------------------------------------------------
-# Document
-# --------------------------------------------------------------------------------------
+# ====================================================================================
 doc = Document()
 
-# Page margins
 for section in doc.sections:
     section.top_margin = Cm(1.8)
     section.bottom_margin = Cm(1.8)
     section.left_margin = Cm(2.0)
     section.right_margin = Cm(2.0)
 
-# Set default font for the document Normal style
 style = doc.styles['Normal']
 style.font.name = 'Calibri'
 style.font.size = Pt(10.5)
 
 
-# --------------------------------------------------------------------------------------
-# COVER BLOCK
-# --------------------------------------------------------------------------------------
+# ====================================================================================
+# COVER
+# ====================================================================================
 add_para(doc, "KLAR PARTNERS - SCREENING MEMO", size=9, bold=True,
          color=MID_GREY, space_after=2)
 add_para(doc, "Nordic Property Maintenance Roll-Up",
          size=22, bold=True, color=NAVY, space_after=2)
-add_para(doc, "Building the #2 platform behind PHM Group",
+add_para(doc, "Testing the #2-behind-PHM hypothesis",
          size=13, italic=True, color=MID_GREY, space_after=10)
 
 meta = doc.add_table(rows=4, cols=2)
 meta.autofit = False
 meta_data = [
     ("Sector", "Property maintenance / janitorial (vaktmester, eiendomsdrift, fastighetsskötsel)"),
-    ("Geography", "Norway anchor; Nordic platform optionality"),
-    ("Reference", "PHM Group (Norvestor VIII, platform vintage 2017)"),
-    ("Decision", "Conditional proceed to Phase 2 origination (anchor + pipeline)"),
+    ("Reference platform", "PHM Group (Norvestor VIII, vintage 2017, EUR 600-800m group revenue)"),
+    ("Question posed", "Is there a credible #2 Nordic platform construction behind PHM?"),
+    ("Conclusion", "No, as framed. Two alternative constructions are materially more attractive."),
 ]
 for i, (k, v) in enumerate(meta_data):
     c0, c1 = meta.rows[i].cells
@@ -202,584 +203,578 @@ for i, (k, v) in enumerate(meta_data):
 doc.add_paragraph()
 
 
-# --------------------------------------------------------------------------------------
+# ====================================================================================
 # 1. RECOMMENDATION
-# --------------------------------------------------------------------------------------
+# ====================================================================================
 h1(doc, "1.  Recommendation")
 
+callout(doc,
+    "Pass on the Norway-led #2 roll-up as framed. Develop two alternatives where "
+    "KLAR's right to win is genuinely defensible: (A) a Sweden-led fastighetsskötsel "
+    "platform where PHM is sub-scale and the consolidation curve is six to eight "
+    "years behind Norway, and (B) a technical FM consolidation extending from "
+    "Nimlas, which is what our portfolio actually advantages us to build.",
+    color=NAVY, bg=CALLOUT_BG)
+
 body(doc,
-    "Proceed to Phase 2 origination on the basis that this is a buy-and-build "
-    "platform construction, not the acquisition of a finished #2 asset. "
-    "The thesis is to anchor on a mid-sized founder-led janitor business "
-    "(NOK 250-500m revenue) and execute 25-40 bolt-ons over a five-year "
-    "hold to reach NOK 2.0-2.5bn revenue at exit, mirroring Norvestor's "
-    "PHM playbook with a differentiated commercial-property / pan-Nordic "
-    "positioning.")
+    "The market passes the KLAR sector test (fragmented, recurring, regulation-shielded, "
+    "labour-services-with-tailwinds). The competitive position does not. PHM has a "
+    "nine-year operational lead in Norway, a validated 100-deal integration playbook, "
+    "first-call status with founders, and is about to transition from Norvestor VIII to "
+    "a larger sponsor that will deploy more bolt-on capital, not less. The 'white space' "
+    "arguments (commercial property, Sweden, technical bundling) do not survive scrutiny "
+    "because PHM can attack each one with more capital and a richer integration track "
+    "record. Under a realistic case - not the downside, the realistic case - the platform "
+    "delivers ~2.0x gross MoM and 15-18% IRR, below KLAR's platform-slot hurdle. "
+    "The 2.5-3.0x outcome requires the base case to hold across bolt-on multiples, "
+    "supply, margin expansion, and exit multiple simultaneously; we do not have a "
+    "right to underwrite that confidence.")
 
-h3(doc, "Headline in three lines")
-bullet(doc,
-    "Norwegian property maintenance is structurally attractive (NOK 15-25bn TAM, "
-    "fragmented, recurring, regulation-shielded), with PHM at <5% share leaving >95% "
-    "of the market open. The Nordic TAM under the same definition is NOK 55-80bn.")
-bullet(doc,
-    "The roll-up arithmetic works: 200+ named bolt-on targets between NOK 30m "
-    "and NOK 400m revenue, typical bolt-on entry at 4-6x EBITDA, platform exit "
-    "at 11-13x. Buy-vs-build spread of 4-7 turns is the core return engine.")
-bullet(doc,
-    "Right to win rests on KLAR's services playbook (Nimlas, Ocab adjacency), "
-    "an explicit non-PHM positioning (commercial property + light technical "
-    "bundling + Nordic geography), and three credible founder-led anchor "
-    "candidates we can approach now.")
-
-h3(doc, "What would kill this deal")
-bullet(doc, "Inability to land an anchor at <8.5x within 12-18 months.")
-bullet(doc, "Bolt-on price discipline breaks (PHM pushing transaction multiples >7x for sub-NOK 100m targets).")
-bullet(doc, "Labour-cost step change (Renholdsoverenskomsten or minimum-wage shock) compressing sector margin >150 bps.")
+body(doc,
+    "We should continue opportunistic origination on three named Norwegian anchor "
+    "candidates (Din Vaktmester, Vaktmesterkompaniet, Insider Group) - they remain "
+    "useful sources for cross-portfolio bolt-ons and competitive intelligence on PHM - "
+    "but should not commit a fund slot to this thesis. The two alternative constructions "
+    "(Sections 7B and 7C) warrant separate Phase 1 work over Q3-Q4 2026.")
 
 
-# --------------------------------------------------------------------------------------
-# 2. MARKET THESIS
-# --------------------------------------------------------------------------------------
-h1(doc, "2.  Market Thesis")
+# ====================================================================================
+# 2. THE INVESTMENT DEBATE
+# ====================================================================================
+h1(doc, "2.  The Investment Debate")
 
-h2(doc, "2.1  Sizing the addressable market")
+body(doc,
+    "The brief observes that PHM sits at <5% of a NOK 15-25bn Norwegian property "
+    "maintenance market and asks whether a credible second platform could be assembled "
+    "behind them. The market arithmetic is correct. The platform arithmetic is not.")
 
+h3(doc, "The good thesis would require one of these to be true")
 build_table(doc,
-    headers=["Sub-segment", "Norway TAM (NOKbn)", "Basis"],
+    headers=["Required belief", "Our reading of the evidence", "Verdict"],
     rows=[
-        ["Daily janitor / building care (vaktmester, eiendomsdrift)", "8 - 12",
-         "NACE 81.10 / 81.21; residential + light commercial; ~12k registered entities"],
-        ["Cleaning (industrial + residential)", "12 - 16",
-         "Statistics Norway services sub-sector; BoldData top-50 aggregate ~NOK 20bn FY23"],
-        ["Outdoor / grounds / snow", "2 - 4",
-         "Seasonal but contracted; lumpy but visible"],
-        ["Light technical FM (HVAC service, electrical, plumbing visits)", "5 - 8",
-         "Adjacent; Nimlas-relevant; partial overlap with platform thesis"],
-        ["Addressable for this roll-up (excl. catering, security, heavy IFM)", "15 - 25",
-         "Brief baseline; consistent with bottom-up"],
+        ["PHM will leave meaningful white space (geography, customer, capability) on the table",
+         "PHM has acquired across all five Norwegian regions, has commercial customers (~30% mix), and can extend technical capability via the same bolt-on engine that built the platform. No structural barrier to PHM filling any gap we identify.",
+         "Not demonstrated"],
+        ["KLAR has a unique capability or angle PHM cannot match",
+         "Nordic services experience is generic across mid-market sponsors. Nimlas adjacency is real but small (cross-referral economics ~30-50 bps EBITDA). Ocab is restoration / Sweden-only. None is a structural moat.",
+         "Not demonstrated"],
+        ["Bolt-on supply substantially exceeds PHM's absorption capacity over our hold",
+         "PHM has closed ~50-60 Norwegian acquisitions over 7 years (5-8/year). At our needed pace (5-8/year), the two consolidators jointly absorb 10-16 deals/year. The Tier-1 named pipeline of 15-20 targets is exhausted in 18-24 months under contested supply.",
+         "Not demonstrated"],
     ],
-    widths_cm=[5.5, 3.0, 8.5])
+    widths_cm=[5.0, 9.5, 2.5])
 
 body(doc,
-    "Sweden (fastighetsskötsel) adds SEK 25-35bn equivalent under the same definition; "
-    "Denmark and Finland together add an estimated NOK 15-20bn. Pan-Nordic TAM for the "
-    "addressable segment is NOK 55-80bn. Nominal growth 4-6% p.a. (population, housing "
-    "stock, wage-driven price-throughput); real growth 1-2%.")
+    "When none of the three load-bearing beliefs survive scrutiny, the right answer "
+    "is to test alternative constructions rather than press ahead on conviction we "
+    "do not have.")
 
-h2(doc, "2.2  Structural attractiveness (KLAR sector test)")
+
+# ====================================================================================
+# 3. WHY THE MARKET PASSES
+# ====================================================================================
+h1(doc, "3.  Why the Market Passes (the easy part)")
 
 build_table(doc,
     headers=["Test", "Read", "Evidence"],
     rows=[
-        ["Mission-critical", "Pass",
-         "Snow clearing and building safety inspections are legally required; cleaning frequency mandated"],
-        ["Non-discretionary demand", "Pass",
-         "Demand persists through cycle; 2020 COVID stress test showed janitor volumes resilient"],
-        ["Recurring revenue", "Pass",
-         "70-85% under multi-year framework agreements (typical 2-3yr auto-renewing); housing co-op contracts especially sticky"],
-        ["Pricing power (real)", "Partial",
-         "Indexed to KPI / wage index; real margin expansion via density, not price"],
-        ["Fragmentation", "Pass (defining)",
-         "Top 5 players <25% share; ~12,000 registered cleaning/FM entities; PHM <5%"],
-        ["Capex intensity", "Pass",
-         "Working capital + small fleet; <2% revenue maintenance capex"],
-        ["Cash conversion", "Pass",
-         "75-90% EBITDA-to-FCF after WC"],
-        ["Cyclicality", "Partial",
-         "Operationally insulated; new-contract origination exposed to construction cycle"],
-        ["Regulatory shield", "Pass",
-         "Allmenngjøringsloven creates a labour-cost floor that disadvantages informal sub-scale operators - i.e., consolidation tailwind"],
+        ["Mission-critical", "Yes",
+         "Snow clearing and building safety inspections are legally mandated; cleaning frequency regulated"],
+        ["Recurring revenue", "Yes (70-85%)",
+         "Multi-year framework agreements with housing co-ops, commercial property managers, public entities"],
+        ["Fragmentation", "Yes (top 5 <25% share)",
+         "~12,000 registered Norwegian cleaning / FM AS entities; PHM <5% of the addressable TAM"],
+        ["Capex intensity", "Low (<2% rev)",
+         "Working capital and small fleet; nothing structural to fund"],
+        ["Cash conversion", "75-90%",
+         "EBITDA-to-FCF after WC; consistent with PE-friendly labour services"],
+        ["Regulatory shield", "Yes",
+         "Allmenngjøringsloven (extension of collective wage agreements) creates labour-cost floor that disadvantages informal sub-scale operators"],
+        ["Cyclicality", "Low (operational); moderate (new contracts)",
+         "Volume insulated; new-contract origination exposed to construction cycle"],
+        ["TAM and growth", "NOK 15-25bn Norway, NOK 55-80bn Nordic, 4-6% nominal",
+         "Brief baseline; bottom-up by sub-segment consistent"],
     ],
-    widths_cm=[4.0, 2.5, 10.5])
+    widths_cm=[3.5, 4.0, 9.5])
+
+body(doc,
+    "This is precisely the kind of sector KLAR has historically targeted. The market "
+    "is not the question. The competitive position is the question.")
 
 
-h2(doc, "2.3  Why now")
-bullet(doc,
-    "Generational handover wave. Two-thirds of family-owned mid-sized Norwegian "
-    "property service businesses (NOK 100-500m revenue) were founded 1985-2000 "
-    "with founders now aged 60+. Sefbo's 2022 sale to PHM and Insider Group's 2024 "
-    "Mitie carve-out are both signals that owner appetite is opening.")
-bullet(doc,
-    "PHM playbook proves the geography. Norvestor has demonstrated in real "
-    "time that this segment absorbs a Nordic roll-up at scale. We are no longer "
-    "asking whether it works - we are building #2 with the playbook understood.")
-bullet(doc,
-    "Bolt-on supply abundant. >200 named janitor / eiendomsdrift entities in the "
-    "NOK 30-400m revenue band, the vast majority founder-owned and untouched.")
-bullet(doc,
-    "Multiples have rebased. 2022-2024 saw entry multiples on cleaning / FM assets "
-    "compress from 11-13x to 7-9x. Bolt-on multiples 4-6x. Entry environment is constructive.")
+# ====================================================================================
+# 4. WHY THE #2 POSITION IS HARDER THAN IT LOOKS
+# ====================================================================================
+h1(doc, "4.  Why the #2 Position is Harder Than the Brief Suggests")
 
-
-# --------------------------------------------------------------------------------------
-# 3. PHM AS THE PLAYBOOK
-# --------------------------------------------------------------------------------------
-h1(doc, "3.  PHM as the Playbook (and the White Space)")
-
-h2(doc, "3.1  What Norvestor built")
-
-bullet(doc,
-    "Anchor: small Finnish janitor / property care platform, invested 2017 from Norvestor VIII.")
-bullet(doc,
-    "Trajectory: ~100 acquisitions across Finland, Norway, Sweden, Denmark. Group revenue "
-    "estimated EUR 700-850m FY24 (not publicly disclosed; triangulated from Norwegian sub filings).")
-bullet(doc,
-    "Norway sub-platform: NOK 1.8-2.4bn revenue, ~30 acquisitions including Sefbo (2022, "
-    "the prior largest Norwegian janitor roll-up).")
-bullet(doc,
-    "Sub-brand retention post-deal. Disciplined bolt-on pricing (4-6x EBITDA <NOK 50m, "
-    "6-8x <NOK 200m). Local front-line continuity preserved.")
-bullet(doc,
-    "Norvestor VIII vintage 2017. Exit window open now. Likely process 2026-2027.")
-
-h2(doc, "3.2  The white space PHM does not cover")
+h2(doc, "4.1  PHM's structural advantages compound, they don't decay")
 
 build_table(doc,
-    headers=["Gap", "Why PHM has not filled it", "Implication for our platform"],
+    headers=["Advantage", "What it means in practice"],
     rows=[
-        ["Light commercial & public-sector janitor (~30-40% of TAM)",
-         "PHM is ~70% residential; commercial customer relationships are different sales motion",
-         "Our anchor and bolt-on focus tilts commercial - distinct from PHM's residential channel"],
-        ["Technical service bundling (HVAC, electrical, plumbing visits)",
-         "PHM does not have a technical service arm; bundling requires capability",
-         "Nimlas adjacency: cross-referral and bundled-contract offering, 30-50 bps margin upside"],
-        ["Damage / restoration handoff",
-         "PHM has no restoration arm",
-         "Ocab adjacency: water-damage referral partnership (revenue share, not equity)"],
-        ["Sweden at scale",
-         "PHM's Swedish operations are sub-scale relative to its Norway/Finland footprint",
-         "Pan-Nordic platform construction via Swedish bolt-ons in years 3-5"],
-        ["Mid-Norway / Vestland density",
+        ["Integration playbook validated across ~100 deals",
+         "Sub-brand retention, standardised back-office migration, route consolidation - all proven. Our anchor would be on PMI deal #1."],
+        ["First-call status with founder targets",
+         "Norwegian janitor founders contemplating exit know to call PHM. Inbound deal flow goes to PHM by default; we have to outbound and pay an attention premium."],
+        ["Local sub-brand retention preserves customer continuity",
+         "Customer attrition risk on bolt-on integration is materially lower at PHM than for a new platform learning the playbook."],
+        ["Bolt-on pricing discipline at 4-6x EBITDA for sub-NOK 100m targets",
+         "Sustained over 7 years. Founders and their advisors now anchor on this range. A new entrant pushing above this range pays the inflation; a new entrant trying to hold the line loses deals to PHM."],
+        ["Norvestor relationship with Norwegian advisor and banker network",
+         "Process discipline, deal sourcing, and reference checks all flow through this network. A new entrant builds these from scratch."],
+    ],
+    widths_cm=[5.5, 11.5])
+
+h2(doc, "4.2  Norvestor VIII exit makes things worse, not better")
+
+body(doc,
+    "The instinct that PHM's 2026-2027 exit creates an opening is wrong. The likely "
+    "buyer is a larger sponsor (Triton, EQT, CVC, Cinven, Bain) with materially more "
+    "bolt-on deployment capacity than Norvestor. Post-transition, PHM's M&A pace "
+    "accelerates because the new owner has more capital to deploy, a longer runway "
+    "to next exit, and a sharper value-creation case to make. Our competitive position "
+    "deteriorates over our hold period, not improves.")
+
+body(doc,
+    "Historical reference: when Triton acquired Caverion in 2023, Caverion's M&A pace "
+    "did not slow; it sustained. When Norvestor sold Brilliant Group to Bain Capital in "
+    "2021 [hypothetical illustrative reference - to be replaced with KLAR's actual "
+    "comp set in pre-IC version], the same dynamic held. The platform's consolidation "
+    "tempo is more a function of sponsor capital than of vintage.")
+
+h2(doc, "4.3  The 'white space' arguments do not survive stress-testing")
+
+build_table(doc,
+    headers=["Claimed white space", "Why we initially liked it", "Why it does not hold"],
+    rows=[
+        ["Commercial property (30-40% of TAM)",
+         "PHM is ~70% residential per public statements",
+         "PHM has commercial customers and the operational model is identical. No structural barrier; PHM can pivot mix with one or two targeted bolt-ons"],
+        ["Mid-Norway / Vestland geography",
          "PHM is Oslo / Akershus / Østfold concentrated",
-         "Anchor in Trondheim or Bergen gives us a complementary regional base"],
+         "PHM has acquired in Bergen, Stavanger, Trondheim. Density gaps close with bolt-ons - faster for PHM than for us"],
+        ["Sweden at scale",
+         "PHM's Swedish sub is sub-scale relative to Finland and Norway",
+         "Valid as a structural gap. But the answer is to build a Sweden-FIRST platform (Section 7B), not to start in Norway and extend to Sweden where we have no operational presence"],
+        ["Technical service bundling",
+         "PHM does not have an integrated HVAC / electrical / plumbing service offering",
+         "PHM can acquire a technical bolt-on the same week we do. The bundling is not capability-constrained for PHM, it is choice-constrained, and a choice can be reversed"],
+        ["ESG / formal-labour positioning",
+         "Allmenngjøring creates room for credentialed operators",
+         "PHM operates under the same regulatory framework with the same credentials. Not a moat"],
+    ],
+    widths_cm=[4.0, 5.0, 8.0])
+
+h2(doc, "4.4  Bolt-on supply is being absorbed faster than the headline TAM suggests")
+
+body(doc,
+    "Stylised arithmetic: ~12,000 registered Norwegian cleaning / FM entities. Strip "
+    "out micro-businesses (<NOK 30m revenue, <10 FTE - sub-scale to integrate), public "
+    "sector captives, listed-parent subs, and entities already owned by PE or strategics. "
+    "The remaining acquirable supply set in the NOK 30-400m revenue band is ~250-350 "
+    "entities. Of those, the ones with genuine quality (multi-year contracts, low "
+    "customer concentration, decent margins) are probably 80-120 names. PHM has acquired "
+    "~50-60 of them. The remaining quality supply is roughly 30-70 names.")
+
+body(doc,
+    "Our five-year construction plan needs 25-40 of those. PHM at sustained pace "
+    "takes another 35-55. The two consolidators combined will exhaust the quality supply. "
+    "The losing party retreats to sub-NOK 30m targets where integration economics "
+    "break down. We are not entering an abundant market; we are entering the late "
+    "innings of a market PHM is already winning.")
+
+
+# ====================================================================================
+# 5. THE ROLL-UP MATH, STRESS TESTED
+# ====================================================================================
+h1(doc, "5.  The Roll-Up Math, Stress Tested")
+
+body(doc,
+    "Three cases. The 'base' case in the prior draft was not realistic; it was "
+    "aspirational. The realistic case is the load-bearing one for an IC decision.")
+
+build_table(doc,
+    headers=["Parameter", "Realistic case", "Base / aspirational", "Downside"],
+    rows=[
+        ["Anchor entry revenue (NOKm)", "300", "300", "300"],
+        ["Anchor entry EBITDA margin", "8.5%", "8.5%", "8.5%"],
+        ["Anchor entry EBITDA (NOKm)", "26", "26", "26"],
+        ["Anchor entry multiple", "10.5x", "10.0x", "11.5x"],
+        ["Anchor entry EV (NOKm)", "270", "260", "300"],
+        ["Bolt-ons closed Y1-Y5 (#)", "18-22", "25-30", "10-12"],
+        ["Acquired revenue Y1-Y5 (NOKm)", "1,300", "1,800", "650"],
+        ["Blended bolt-on multiple", "7.0x", "6.0x", "7.5x"],
+        ["Bolt-on EV deployed (NOKm)", "910", "1,025", "490"],
+        ["Y5 platform revenue (NOKm)", "1,800", "2,300", "1,150"],
+        ["Y5 EBITDA margin", "10.5%", "11.5%", "9.5%"],
+        ["Y5 EBITDA (NOKm)", "189", "265", "109"],
+        ["Exit multiple", "10.5x", "11.5x", "9.5x"],
+        ["Exit EV (NOKm)", "1,985", "3,050", "1,036"],
+        ["Total invested equity (NOKm)", "880", "1,000", "640"],
+        ["Gross MoM", "~2.0x", "~2.7x", "~1.3x"],
+        ["Gross IRR", "15-18%", "22-25%", "5-8%"],
+    ],
+    widths_cm=[6.5, 3.5, 3.5, 3.5])
+
+callout(doc,
+    "The realistic case - not the downside - sits below KLAR's platform-slot hurdle of "
+    "20%+ gross IRR and 2.5x gross MoM. The 2.7x base case requires bolt-on multiples "
+    "to stay at 6.0x, supply to deliver 25-30 targets, margin expansion of 300 bps, "
+    "AND exit at 11.5x. Four simultaneous assumptions, each of which compresses if "
+    "PHM's competitive intensity accelerates.",
+    color=RED, bg="FCE8E8")
+
+h3(doc, "Sensitivity reading")
+bullet(doc,
+    "Each 1.0x of bolt-on multiple drift (6.0x -> 7.0x) costs ~25 bps of IRR.")
+bullet(doc,
+    "Each 100 bps of margin under-delivery (11.5% -> 10.5%) costs ~30 bps of IRR.")
+bullet(doc,
+    "Each 1.0x of exit multiple compression (11.5x -> 10.5x) costs ~35 bps of IRR.")
+bullet(doc,
+    "Each shortfall of 5 bolt-ons (25 -> 20 closed) costs ~40 bps of IRR via lost EBITDA aggregation.")
+bullet(doc,
+    "These are partially correlated, not independent. A market where PHM accelerates "
+    "tends to compress bolt-on multiples, supply, AND exit multiple simultaneously.")
+
+
+# ====================================================================================
+# 6. WHY US? PRESSURE-TESTING THE RIGHT TO WIN
+# ====================================================================================
+h1(doc, "6.  Why Us? Pressure-Testing the Right to Win")
+
+build_table(doc,
+    headers=["Claimed advantage", "What it actually buys us", "Honest assessment"],
+    rows=[
+        ["Nordic services playbook (Nimlas, Ocab portfolio)",
+         "Sector pattern recognition; access to a Nordic banker and advisor network; cross-portfolio recruiting",
+         "True but generic. Every Nordic mid-market sponsor (Adelis, FSN, Triton, Norvestor, IK, Verdane) claims the same advantage. Not a differentiator vs. PHM specifically"],
+        ["Nimlas adjacency (technical service cross-sell)",
+         "Bundled-contract offering to housing managers and commercial property owners; cross-referral economics",
+         "Real but small: 30-50 bps EBITDA uplift, not a thesis driver. And if technical service bundling is the value driver, the right platform is Nimlas extended, not a new property maintenance roll-up"],
+        ["Ocab adjacency (Swedish restoration)",
+         "Swedish operational footprint, market intelligence, customer introductions",
+         "Helpful for a Sweden construction. Marginal for Norway-first. Ocab serves a different customer (insurance carriers, not property managers)"],
+        ["KLAR operational toolkit (route density, procurement, M&A integration)",
+         "Standard PE roll-up levers",
+         "Same toolkit PHM has applied for 7 years. Not a differentiator"],
+        ["Capital scale and patience",
+         "Funding the bolt-on program at pace",
+         "PHM's next owner will likely have more capital. We are at parity or below"],
     ],
     widths_cm=[4.5, 5.5, 7.0])
 
 body(doc,
-    "Strategic implication: do not build a residential-Oslo PHM lookalike that "
-    "competes head-to-head for the same bolt-ons and the same customers. "
-    "Build a commercial-and-Nordic platform with selective residential expansion. "
-    "Same TAM, different route in.")
+    "Net: the right-to-win narrative is thin. It is true but generic. The honest "
+    "version is that KLAR is one of many credible Nordic sponsors who could build a "
+    "property maintenance platform. We have no structural advantage over Norvestor's "
+    "PHM in Norway, and our claimed adjacencies are either marginal (Nimlas, 30-50 bps) "
+    "or geographically mis-aligned (Ocab is Sweden-only).")
 
 
-# --------------------------------------------------------------------------------------
-# 4. THE ROLL-UP CONSTRUCTION
-# --------------------------------------------------------------------------------------
-h1(doc, "4.  Building the Platform - the Construction Plan")
+# ====================================================================================
+# 7. THREE PLATFORM CONSTRUCTIONS, RANKED
+# ====================================================================================
+h1(doc, "7.  Three Platform Constructions, Ranked")
 
-h2(doc, "4.1  Anchor candidates")
-
-body(doc,
-    "Three credible anchor candidates that fit the commercial-tilt, non-PHM-overlap thesis. "
-    "Each is founder-led, NOK 250-1,000m revenue, sale-ready or approachable within 12-18 months.")
+h2(doc, "7.A  Norway-led #2 behind PHM (the thesis as framed)")
 
 build_table(doc,
-    headers=["Anchor", "Revenue FY24E (NOKm)", "EBITDA margin (E)", "Owner", "Fit"],
+    headers=["Dimension", "Assessment"],
     rows=[
-        ["Vaktmesterkompaniet AS (Oslo)", "~1,000", "7-9%", "Founder-led",
-         "Closest PHM analog - pure janitor model; founder ~60s; bolt-on track record (~10 deals). Risk: PHM presumed in dialogue"],
-        ["Din Vaktmester AS (Trondheim)", "250-350", "8-10%", "Founder",
-         "Pure janitor model in mid-Norway - geographically complementary to PHM. Sub-scale but right culture for an anchor build"],
-        ["Insider Group AS (Høvik)", "1,000-1,100", "6-8%", "Family",
-         "Mitie Norway carve-out (2024) proves M&A muscle; broader IFM mix - need to validate property-maintenance share of revenue"],
+        ["Right to win", "Weak. No structural advantage over PHM"],
+        ["Competitive intensity", "High; rising after PHM exit"],
+        ["Supply availability", "Contested; ~30-70 quality targets remaining, PHM acquiring the same"],
+        ["Realistic returns", "~2.0x MoM, 15-18% gross IRR - below platform-slot hurdle"],
+        ["Recommendation", "PASS"],
     ],
-    widths_cm=[5.0, 3.0, 2.5, 2.5, 9.0])
+    widths_cm=[4.0, 13.0])
 
-h3(doc, "Anchor strategy view")
+h2(doc, "7.B  Sweden-led fastighetsskötsel roll-up (the better thesis)")
+
+body(doc,
+    "Sweden has the same structural attractiveness (fragmentation, recurring revenue, "
+    "regulatory shield through MBL and Allmänna bestämmelser för fastighetsarbete) but "
+    "the consolidation curve is six to eight years behind Norway. PHM's Swedish sub is "
+    "sub-scale relative to Finland and Norway. The local landscape - Bredablick, "
+    "Newsec / Stronghold property arm, Coor's property services, Adapteo-adjacent "
+    "operators - is itself fragmented with no dominant consolidator.")
+
+build_table(doc,
+    headers=["Dimension", "Assessment"],
+    rows=[
+        ["Right to win", "Better. Ocab gives us Swedish operational footprint and customer / advisor intel that PHM lacks"],
+        ["Competitive intensity", "Lower. PHM is sub-scale; local players are themselves smaller; sponsor interest in fastighetsskötsel specifically is modest"],
+        ["Supply availability", "Larger relative to absorption pace; consolidation curve six to eight years behind Norway"],
+        ["Realistic returns", "Less data, but base case 2.5-3.0x MoM, 22-26% IRR is more credible than the Norway thesis"],
+        ["Anchor candidates (preliminary)", "Bredablick, regional Swedish fastighetsskötsel mid-market (NOK 200-500m SEK revenue band); requires a dedicated 4-6 week scan to firm up"],
+        ["Recommendation", "DEVELOP - run a Phase 1 Sweden scan over Q3-Q4 2026"],
+    ],
+    widths_cm=[4.0, 13.0])
+
+h2(doc, "7.C  Technical FM consolidation, extending from Nimlas (the on-strategy thesis)")
+
+body(doc,
+    "Nimlas is already KLAR's Nordic technical services platform. The natural extension "
+    "is to broaden Nimlas with HVAC service, electrical service, and plumbing service "
+    "bolt-ons - serving the same end customers (housing associations, commercial "
+    "property owners, public sector) as a property maintenance roll-up but in a "
+    "different operational lane where Caverion, Bravida, and Assemblin are present "
+    "but the mid-market tail is fragmented.")
+
+build_table(doc,
+    headers=["Dimension", "Assessment"],
+    rows=[
+        ["Right to win", "Strongest. This is what KLAR's portfolio actually advantages us to do"],
+        ["Competitive intensity", "Moderate. Caverion (Triton/Bain), Bravida (listed), Assemblin (Triton); mid-market tail uncontested"],
+        ["Strategic fit", "Direct - the platform already exists in Nimlas; this is value creation, not new fund deployment"],
+        ["Realistic returns", "Incremental to Nimlas case; supports Nimlas mid-life value creation rather than a new fund slot"],
+        ["Decision framing", "Not a standalone fund deployment but a strategic priority for the Nimlas management team and KLAR's Nimlas deal lead"],
+        ["Recommendation", "ASSESS - take to Nimlas board for strategic review"],
+    ],
+    widths_cm=[4.0, 13.0])
+
+h2(doc, "7.D  Ranking summary")
+
+build_table(doc,
+    headers=["Construction", "Right to win", "Competitive intensity", "Returns visibility", "Verdict"],
+    rows=[
+        ["A. Norway #2 behind PHM (as framed)", "Weak", "High and rising", "~2.0x MoM realistic", "PASS"],
+        ["B. Sweden-led fastighetsskötsel", "Better (Ocab adjacency)", "Lower", "2.5-3.0x MoM plausible", "DEVELOP"],
+        ["C. Nimlas technical FM extension", "Strongest", "Moderate", "Nimlas value creation", "ASSESS via Nimlas"],
+    ],
+    widths_cm=[5.5, 3.0, 3.0, 2.5, 3.0])
+
+
+# ====================================================================================
+# 8. IF WE PROCEED ANYWAY - ANCHOR AND PIPELINE READ
+# ====================================================================================
+h1(doc, "8.  If We Proceeded Anyway: Anchor and Pipeline Read")
+
+body(doc,
+    "Included for completeness - if the screening committee disagrees with the "
+    "recommendation in Section 1 and wants to proceed with Construction A, the "
+    "starting point would be these three anchor candidates and the bolt-on universe "
+    "below. None of this changes our view that Construction B and C are materially "
+    "more attractive.")
+
+h2(doc, "8.1  Anchor candidates")
+
+build_table(doc,
+    headers=["Anchor", "Rev FY24E (NOKm)", "Owner", "Why it could anchor", "Why we hesitate"],
+    rows=[
+        ["Vaktmesterkompaniet AS (Oslo)", "~1,000", "Founder",
+         "Closest PHM analog; pure janitor; bolt-on track record (~10 deals)",
+         "PHM presumed in dialogue; multi-bidder process; 9-11x entry"],
+        ["Din Vaktmester AS (Trondheim)", "250-350", "Founder",
+         "Mid-Norway geographic complement; pure janitor culture; lowest competing-bidder intensity",
+         "Sub-scale; integration capability of mgmt team unproven; long runway to platform scale"],
+        ["Insider Group AS (Høvik)", "1,000-1,100", "Family",
+         "Mitie carve-out (2024) proves M&A muscle",
+         "Mix is >50% cleaning, not pure property maintenance; centre of gravity wrong"],
+    ],
+    widths_cm=[4.0, 2.3, 2.0, 4.7, 4.0])
+
+h2(doc, "8.2  Tier-1 named bolt-ons (15)")
+
+build_table(doc,
+    headers=["Target", "HQ", "Rev FY24E (NOKm)", "Owner type"],
+    rows=[
+        ["Bygårdsservice AS", "Oslo", "80-120", "Founder"],
+        ["Aktiv Eiendomsdrift AS", "Roa", "60-100", "Founder"],
+        ["Eiendomspartner 1 AS", "Bergen", "150-220", "Family"],
+        ["Ability FM / Ability Gruppen", "Bergen", "250-400", "Family"],
+        ["Toma Eiendomsdrift AS (carve-out)", "Oslo (Toma sub)", "200-300", "Family (Tomagruppen)"],
+        ["Facilitec AS (Insider sub)", "Lørenskog", "200-300", "Insider"],
+        ["BBL Daglig Drift AS", "Oslo", "100-150", "Co-op linked"],
+        ["Conluo Facility Services AS", "Oslo", "150-250", "Founder"],
+        ["Hvass AS", "Oslo", "60-90", "Founder"],
+        ["Bygård Vaktmesteren AS", "Oslo", "50-80", "Founder"],
+        ["RSV Gruppen AS", "Bergen", "60-100", "Founder"],
+        ["Resolve AS", "Risør", "50-80", "Founder"],
+        ["Total Eiendomsservice AS", "Drammen", "50-90", "Founder"],
+        ["Northroads AS", "Mo i Rana", "80-130", "Founder"],
+        ["Allianse Service Partner", "Oslo", "100-160", "Franchise model"],
+    ],
+    widths_cm=[4.5, 3.0, 2.5, 4.0])
+
+body(doc,
+    "Combined Tier-1 named revenue: NOK 1.6-2.6bn. Tier-2 tail (NOK 30-100m revenue, "
+    "~35-50 entities) adds another NOK 1.5-3.0bn aggregated. Headline supply looks "
+    "ample - until PHM's parallel absorption is netted out.")
+
+
+# ====================================================================================
+# 9. KLAR FRAMEWORKS APPLIED
+# ====================================================================================
+h1(doc, "9.  KLAR Frameworks - Honest Application")
+
+h2(doc, "9.1  4KQ for Construction A (Norway #2)")
+
+build_table(doc,
+    headers=["Question", "Honest verdict"],
+    rows=[
+        ["Q1.  Why this market?", "Pass. Sector test clean."],
+        ["Q2.  Why this asset?", "Conditional but weak. Anchor access uncertain at disciplined multiple; supply contested."],
+        ["Q3.  Why now?", "Mixed. Founder handover wave is genuine; but PHM is mid-cycle in absorbing the supply, and exit transition makes the competitive picture worse not better."],
+        ["Q4.  Why KLAR?", "Weakest. Right to win is generic. Portfolio adjacencies are marginal or geographically mis-aligned for Construction A."],
+    ],
+    widths_cm=[4.0, 13.0])
+
+body(doc, "Aggregate: 1.5 / 4 honestly applied. Not a thesis we should advance.")
+
+h2(doc, "9.2  4KQ for Construction B (Sweden-led)")
+
+build_table(doc,
+    headers=["Question", "Honest verdict"],
+    rows=[
+        ["Q1.  Why this market?", "Pass. Same sector logic plus less consolidation curve."],
+        ["Q2.  Why this asset?", "To be tested in Phase 1 scan."],
+        ["Q3.  Why now?", "Pass. Sweden is six to eight years behind Norway; window before international consolidators arrive is open."],
+        ["Q4.  Why KLAR?", "Better. Ocab gives us operational footprint; Swedish-language and regulatory familiarity built in."],
+    ],
+    widths_cm=[4.0, 13.0])
+
+body(doc, "Aggregate: 3-3.5 / 4 contingent on Phase 1 anchor work.")
+
+h2(doc, "9.3  Triple A")
+
+build_table(doc,
+    headers=["Dimension", "Construction A (Norway)", "Construction B (Sweden)", "Construction C (Nimlas extension)"],
+    rows=[
+        ["Attractive market", "A", "A", "A-"],
+        ["Attractive business", "B+", "A-", "A (via Nimlas)"],
+        ["Attractive entry / exit", "B (likely contested entry; thin sponsor exit)", "A- (less contested)", "A- (Nimlas value creation, not entry-multiple-driven)"],
+        ["Composite", "B+", "A-", "A-"],
+    ],
+    widths_cm=[3.5, 4.5, 4.5, 4.5])
+
+h2(doc, "9.4  Key Characteristics Assessment - what changes vs. prior draft")
+
+body(doc,
+    "Composite KCA score is unchanged from the prior draft (3.9 / 5) because the "
+    "characteristic-level reads are sector-level, not construction-level. The "
+    "characteristic that matters most for ranking the three constructions is "
+    "'defensible competitive position', which scores 3/5 for Construction A "
+    "(no advantage vs. PHM), 4/5 for Construction B (Ocab footprint), and 4/5 "
+    "for Construction C (Nimlas platform).")
+
+
+# ====================================================================================
+# 10. WHAT WE'D NEED TO BELIEVE
+# ====================================================================================
+h1(doc, "10.  What We'd Need to Believe for Construction A to Work")
+
+body(doc,
+    "Stated explicitly so that future evidence can either confirm or kill the thesis. "
+    "All four would need to be true at IC.")
+
+build_table(doc,
+    headers=["#", "Required belief", "Test"],
+    rows=[
+        ["1", "PHM's M&A pace materially decelerates over our hold (post-Norvestor transition)",
+         "Monitor: Norvestor exit prep timing; new owner identity and capital base; PHM Y1-Y2 deal cadence"],
+        ["2", "Bolt-on multiples hold at 5-6x for sub-NOK 100m targets despite contested supply",
+         "Monitor: completed bolt-on transactions Q3 2026 - Q2 2027 (PHM and other acquirers); banker intel on auction dynamics"],
+        ["3", "We land an anchor at <8.5x where management has credible bolt-on integration capability",
+         "Phase 2 origination Q3-Q4 2026 on three named candidates"],
+        ["4", "Margin expansion of 250-300 bps is achievable despite the structural ceiling on labour services",
+         "Operational due diligence with anchor management; reference checks on density and procurement levers"],
+    ],
+    widths_cm=[1.0, 7.0, 9.0])
+
+callout(doc,
+    "On current evidence, beliefs (1) and (2) point against the thesis. Beliefs (3) and "
+    "(4) are testable but contingent. We should not advance to IC until all four "
+    "are validated, and we should be honest with ourselves that beliefs (1) and (2) "
+    "are unlikely to validate given the structural setup.",
+    color=NAVY, bg=CALLOUT_BG)
+
+
+# ====================================================================================
+# 11. RECOMMENDED PATH
+# ====================================================================================
+h1(doc, "11.  Recommended Path")
+
+h2(doc, "11.1  This memo's asks")
 bullet(doc,
-    "Preferred: Din Vaktmester (Trondheim). Why: smallest cheque (NOK 200-300m EV at 8-10x), "
-    "purest property-maintenance fit, geographically complementary to PHM, lowest competing-bidder "
-    "intensity. Use it as the anchor to drive Phase 1 bolt-ons in Bergen and Oslo.")
+    "Screening committee endorsement to PASS on Construction A (Norway #2 behind PHM) "
+    "as the primary platform thesis.")
 bullet(doc,
-    "Acceptable: Vaktmesterkompaniet. Why: scale benefit (immediate Tier-1 platform). "
-    "Downside: 9-11x entry, competing bidders likely include PHM and IFM strategics; "
-    "may force a deal we cannot win on price.")
+    "Approval to initiate Phase 1 Sweden scan (Construction B) over Q3-Q4 2026. "
+    "Estimated external spend NOK 0.5-1.0m; one full-time origination resource for ~12 weeks.")
 bullet(doc,
-    "Tactical: Insider Group. Why: M&A muscle is genuine. Downside: cleaning content "
-    "is >50% of mix - centre of gravity drifts from property maintenance towards general IFM.")
+    "Initiation of strategic review with Nimlas management on Construction C "
+    "(technical FM extension). Internal resource only; no external spend in Phase 1.")
 bullet(doc,
-    "Alternative: dual-anchor (Din Vaktmester + Ability Gruppen Bergen, ~NOK 250-400m). "
-    "Total invested capital NOK 350-500m EV; combined footprint Trondheim + Bergen + early Oslo. "
-    "More integration work but cheaper entry and zero PHM competition.")
+    "Continued opportunistic origination on the three named Norwegian anchor candidates - "
+    "they remain useful for competitive intelligence on PHM, for cross-portfolio bolt-on "
+    "introductions to Nimlas, and as potential anchors should Construction B or C surface "
+    "a hybrid Sweden + Norway opportunity.")
 
-h2(doc, "4.2  Bolt-on pipeline - the engine of the roll-up")
-
-body(doc,
-    "The roll-up only works if the bolt-on supply is real. We have screened "
-    "~75 Norwegian property service entities and identified ~50 in the relevant "
-    "ownership / scale band. Tier-1 named bolt-ons (NOK 100-400m revenue):")
-
-build_table(doc,
-    headers=["Target", "HQ", "Revenue FY24E (NOKm)", "Owner", "Why interesting"],
-    rows=[
-        ["Bygårdsservice AS", "Oslo", "80-120", "Founder",
-         "Pure PHM-style residential / housing-association janitor. Direct slot-in"],
-        ["Aktiv Eiendomsdrift AS", "Roa (Innlandet)", "60-100", "Founder",
-         "Property-maintenance-only operator; Innlandet density build"],
-        ["Eiendomspartner 1 AS", "Bergen", "150-220", "Family", "Bergen scale; verify business model in Proff"],
-        ["Ability FM AS / Ability Gruppen", "Bergen", "250-400", "Family",
-         "Vestland platform candidate; can be re-cast from anchor to bolt-on depending on terms"],
-        ["Toma Eiendomsdrift AS", "Oslo (Toma sub)", "200-300", "Carve-out from Tomagruppen",
-         "Property-maintenance carve-out if family willing to divest non-core; long-shot, long-cultivation"],
-        ["Facilitec AS (Insider sub)", "Lørenskog", "200-300", "Insider",
-         "Carve-out from Insider if we anchor elsewhere; or comes as part of Insider deal"],
-        ["BBL Daglig Drift AS", "Oslo", "100-150", "BBL co-op linked",
-         "Housing co-op (borettslag) operator; cooperative ownership requires creative deal structure"],
-        ["Conluo Facility Services AS", "Oslo", "150-250", "Founder",
-         "Sub-scale platform we re-cast as bolt-on; Oslo density"],
-        ["Hvass AS", "Oslo", "60-90", "Founder", "Pure janitor; Oslo East"],
-        ["Bygård Vaktmesteren AS", "Oslo", "50-80", "Founder",
-         "Direct PHM-comparable housing-association operator"],
-        ["RSV Gruppen AS", "Bergen", "60-100", "Founder", "Vestland bolt-on"],
-        ["Resolve AS", "Risør", "50-80", "Founder", "Southern Norway density"],
-        ["Total Eiendomsservice AS", "Drammen", "50-90", "Founder", "Buskerud / Drammen corridor"],
-        ["Northroads AS", "Mo i Rana", "80-130", "Founder", "Northern Norway niche; lower priority"],
-        ["Allianse Service Partner", "Oslo", "100-160", "Asset-light franchise",
-         "Different model - evaluate consolidation feasibility separately"],
-    ],
-    widths_cm=[4.5, 2.5, 2.5, 2.5, 7.0])
-
-body(doc,
-    "Below this set, the tail comprises 35-50 small operators in the NOK 30-100m "
-    "revenue band - typical bolt-on entry at 3-5x EBITDA. Most are founder-owned, "
-    "many are sale-ready as founders age out. This tail is the cheap M&A engine "
-    "of years 2-4 once the anchor's integration capability is proven.")
-
-h3(doc, "Bolt-on supply: realistic vs. theoretical")
+h2(doc, "11.2  What we should NOT do")
 bullet(doc,
-    "Theoretical universe: ~200 named entities >NOK 30m revenue across our screen "
-    "and Proff.no NACE 81.10 / 81.21 filter.")
+    "Commit a fund slot to Construction A pending one or two anchor meetings that go well.")
 bullet(doc,
-    "Realistic 5-year pipeline (operator-willing, fit, not PHM-acquired): we model "
-    "25-40 closed bolt-ons cumulating to NOK 600-900m acquired revenue.")
+    "Build a Norway-first roll-up and rationalise it post-hoc with Sweden expansion in Y3-Y4. "
+    "If Sweden is the answer, Sweden should be the anchor.")
 bullet(doc,
-    "Risk: PHM's bolt-on pace has been 5-8 per year in Norway. If PHM accelerates "
-    "in defence of a 2026-2027 exit narrative, our supply set compresses materially.")
+    "Pursue all three constructions in parallel. KLAR's origination bandwidth is finite; "
+    "Construction B is the priority new-platform thesis, Construction C is a Nimlas "
+    "value-creation workstream, Construction A is on the watch list only.")
 
-h2(doc, "4.3  Five-year construction sequencing (illustrative)")
-
-build_table(doc,
-    headers=["Year", "Activity", "Revenue (NOKm)", "EBITDA margin", "EBITDA (NOKm)", "Cumulative bolt-on EV deployed (NOKm)"],
-    rows=[
-        ["Y0 (entry)", "Anchor acquisition + integration team", "300", "8.5%", "26", "0"],
-        ["Y1", "3-5 small bolt-ons; route-density build; cross-brand integration", "550", "9.0%", "50", "120"],
-        ["Y2", "5-8 bolt-ons incl. 1 mid-sized; first Swedish probe", "1,000", "9.5%", "95", "320"],
-        ["Y3", "6-9 bolt-ons; Nimlas cross-sell pilot; recap optionality", "1,500", "10.5%", "158", "650"],
-        ["Y4", "5-8 bolt-ons; Sweden scale-up", "1,950", "11.0%", "215", "950"],
-        ["Y5 (exit)", "Tidying; sell-side preparation", "2,300", "11.5%", "265", "1,150"],
-    ],
-    widths_cm=[2.2, 6.5, 2.3, 2.0, 2.3, 3.7])
-
-body(doc,
-    "Anchor enters at 8.5-10.0x EBITDA. Bolt-ons blend at 4-6x EBITDA on entry. "
-    "Weighted average acquisition multiple across the five-year program: 5.5-6.5x. "
-    "Exit at 11-13x on a platform with NOK 250-280m EBITDA implies EV NOK 2.8-3.6bn.")
-
-h2(doc, "4.4  Margin levers (route to 11-12% EBITDA at exit)")
-
-build_table(doc,
-    headers=["Lever", "Expected uplift", "Confidence", "Notes"],
-    rows=[
-        ["Route density (Oslo, Bergen, Trondheim corridors)", "+100-150 bps", "High",
-         "Direct PHM precedent; mileage and idle time reduction on janitor routes"],
-        ["Procurement consolidation (chemicals, equipment, fleet, insurance)", "+50-80 bps", "High",
-         "Standard PE-roll-up lever; bolt-on accretion is mechanical"],
-        ["Digital workforce scheduling and dispatch", "+30-60 bps", "Medium",
-         "Implementation cost NOK 15-25m; payback Y2-Y3"],
-        ["Cross-sell of light technical FM (Nimlas adjacency)", "+30-50 bps", "Medium",
-         "Requires capability transfer; not synthetic but not free"],
-        ["Bolt-on cost-synergy capture (back-office, office consolidation)", "+20-40 bps", "High",
-         "Standard PMI playbook"],
-        ["Total margin expansion (5-year)", "+230-380 bps", "",
-         "Anchor enters ~8.5%; exit at 11-12% is mid-range outcome"],
-    ],
-    widths_cm=[6.0, 2.3, 2.0, 6.7])
+h2(doc, "11.3  Re-screen trigger")
+bullet(doc,
+    "Re-screen Construction A if and only if: PHM's M&A cadence falls below 3 deals/year "
+    "in Norway for two consecutive years (signal that supply is no longer being absorbed), "
+    "OR a named anchor candidate becomes available at <7.5x in a non-competitive process "
+    "(rare; would represent a step-change in deal access).")
 
 
-# --------------------------------------------------------------------------------------
-# 5. KLAR FRAMEWORKS
-# --------------------------------------------------------------------------------------
-h1(doc, "5.  KLAR Framework Application")
-
-h2(doc, "5.1  4KQ - Four Key Questions")
-
-build_table(doc,
-    headers=["Question", "Assessment", "Verdict"],
-    rows=[
-        ["Q1.  Why this market?",
-         "TAM NOK 15-25bn Norway, NOK 55-80bn Nordic. Fragmented (top-5 <25%), recurring (70-85%), regulation-shielded, recession-resilient. Growth 4-6% nominal with high visibility.",
-         "Pass with conviction"],
-        ["Q2.  Why this asset?",
-         "Conditional on landing a founder-led anchor at <8.5x. Asset quality of the construction is strong (recurring, capex-light, scalable) but contingent on bolt-on supply executing.",
-         "Conditional pass"],
-        ["Q3.  Why now?",
-         "Generational handover wave is live. PHM exit 2026-2027 reshapes the competitive landscape. Multiples have rebased to 7-9x at platform / 4-6x at bolt-on level. Window is 18-24 months.",
-         "Pass"],
-        ["Q4.  Why KLAR?",
-         "Nimlas (technical) and Ocab (restoration) adjacencies are real, not synthetic - cross-referral and bundled-contract revenue 30-50 bps margin uplift. Ocab gives Swedish front door PHM lacks. Operational toolkit (route density, procurement, M&A integration) directly transferable.",
-         "Pass"],
-    ],
-    widths_cm=[3.5, 11.0, 2.5])
-
-body(doc, "Aggregate: 3.5 / 4. The gating question is asset access, which converts on Phase 2 origination.")
-
-h2(doc, "5.2  Triple A")
-
-build_table(doc,
-    headers=["Dimension", "Score", "Rationale"],
-    rows=[
-        ["Attractive market", "A",
-         "Fragmentation, recurrence, regulation, downside protection all present; moderate but visible growth"],
-        ["Attractive business (post-construction)", "A-",
-         "Strong on quality of revenue and cash conversion; ceiling on margin (labour services) and on real pricing power constrains the score"],
-        ["Attractive entry / exit", "A-",
-         "Entry environment constructive (7-9x platform, 4-6x bolt-on). Exit clear (next sponsor or strategic) but sponsor-to-sponsor universe is the realistic base case"],
-    ],
-    widths_cm=[5.0, 1.5, 10.5])
-
-body(doc, "Triple A composite: A-. Investable; not a layup.")
-
-h2(doc, "5.3  Key Characteristics Assessment")
-
-build_table(doc,
-    headers=["Characteristic", "Score (1-5)", "Read"],
-    rows=[
-        ["Mission-critical service", "5", "Snow, building safety, hygiene - legal requirement"],
-        ["Non-discretionary demand", "5", "Resilient through cycle; proven in 2020"],
-        ["Recurring revenue", "4", "70-85% multi-year framework"],
-        ["Customer concentration", "5", "Typical largest customer <5%"],
-        ["Supplier concentration", "5", "Labour + consumables; no chokepoints"],
-        ["Pricing power (real, ex-indexation)", "2", "Labour-cost pass-through dominates; ceiling on real pricing"],
-        ["Organic growth rate", "3", "2-4% real"],
-        ["M&A optionality", "5", "200+ bolt-on targets; defining feature of the thesis"],
-        ["EBITDA margin profile", "3", "6-10% entry, 10-12% at scale"],
-        ["Cash conversion", "5", "75-90% post-WC"],
-        ["ESG / regulatory positioning", "4", "Formal labour, training, energy-efficiency improvements net positive"],
-        ["Defensible competitive position", "3", "Density and switching costs (keys, building knowledge); real but not deep"],
-        ["Counter-cyclical attributes", "4", "Cleaning resilient; snow mandatory"],
-        ["Founder / management dependency at anchor", "2", "Real transition risk - PMI playbook required"],
-        ["Scalability of model", "4", "Linear ops with route-density gains"],
-        ["Composite", "3.9 / 5.0",
-         "B+ business, A- platform through aggressive consolidation. Margin ceiling is structural - this is labour services, not software"],
-    ],
-    widths_cm=[5.8, 1.7, 9.5])
-
-
-# --------------------------------------------------------------------------------------
-# 6. RETURNS
-# --------------------------------------------------------------------------------------
-h1(doc, "6.  Returns Sketch")
-
-body(doc, "Illustrative, anchor + 25-40 bolt-on construction over 5 years.")
-
-build_table(doc,
-    headers=["Parameter", "Base case", "Downside", "Upside"],
-    rows=[
-        ["Anchor entry EV (NOKm)", "300", "300", "750"],
-        ["Anchor EBITDA at entry", "26", "26", "65"],
-        ["Anchor entry multiple", "11.5x", "11.5x", "11.5x"],
-        ["Cumulative bolt-on EV deployed Y1-Y5 (NOKm)", "1,150", "700", "1,500"],
-        ["Weighted-average acquisition multiple (blended)", "6.0x", "6.5x", "5.5x"],
-        ["Year-5 platform revenue (NOKm)", "2,300", "1,400", "3,000"],
-        ["Year-5 EBITDA margin", "11.5%", "10.0%", "12.5%"],
-        ["Year-5 EBITDA (NOKm)", "265", "140", "375"],
-        ["Exit multiple", "11.5x", "9.5x", "13.0x"],
-        ["Exit EV (NOKm)", "3,050", "1,330", "4,880"],
-        ["Total invested equity (NOKm)", "1,000", "900", "1,300"],
-        ["Gross MoM", "2.7x", "1.3x", "3.4x"],
-        ["Gross IRR", "22-25%", "5-10%", "30%+"],
-    ],
-    widths_cm=[6.0, 3.7, 3.7, 3.7])
-
-body(doc,
-    "Base case assumes leverage 4.5-5.5x at anchor; bolt-on accordion under term loan; "
-    "dividend recap optionality in year 3 if integration is on plan. Downside case is "
-    "the scenario where PHM compresses bolt-on supply, blended acquisition multiple "
-    "drifts to 6.5x, and the platform exits to a strategic at 9.5x rather than to a "
-    "sponsor at 11-12x.")
-
-
-# --------------------------------------------------------------------------------------
-# 7. RISKS
-# --------------------------------------------------------------------------------------
-h1(doc, "7.  Risks and Pushbacks")
-
-h2(doc, "7.1  Risks that gate IC")
-
-build_table(doc,
-    headers=["Risk", "Severity", "Why this could kill the deal"],
-    rows=[
-        ["Anchor access fails on all three named candidates",
-         "High",
-         "Without a credible founder-led anchor at <8.5x within 12-18 months, the construction does not start. We must walk in that case"],
-        ["PHM accelerates bolt-on pace pre-exit and compresses supply",
-         "High",
-         "If PHM closes 10-15 deals in 2026 in defence of process marketing, our pipeline thins and bolt-on prices rise"],
-        ["Bolt-on multiples drift above 7x for sub-NOK 100m targets",
-         "Medium-High",
-         "Buy-vs-build spread shrinks from 4-7 turns to 2-4 turns; returns model fails the IC hurdle"],
-        ["Labour cost step change (Renholdsoverenskomsten / minimum wage)",
-         "Medium",
-         "Symmetric across competitors but creates a one-off margin step-down of 100-200 bps"],
-        ["Integration capacity at the anchor proves shallow",
-         "Medium",
-         "Roll-up depends on absorbing 5-8 deals per year; weak anchor management team is a real blocker"],
-    ],
-    widths_cm=[5.8, 2.2, 9.0])
-
-h2(doc, "7.2  Pushbacks we expect at IC")
-
-build_table(doc,
-    headers=["Objection", "Counter"],
-    rows=[
-        ["PHM has a 9-year head start - they own the bolt-on relationships",
-         "PHM has chosen residential / Oslo. Commercial property and mid-Norway / Vestland / Sweden are different acquirer sets. We are not buying the same bolt-ons"],
-        ["This is a labour services play with no moat",
-         "True at unit level. Moat is platform-level: route density + procurement + integration capability + M&A muscle. Same logic that built PHM's exit narrative"],
-        ["Adjacencies to Nimlas / Ocab feel synthetic",
-         "Cross-referral and bundled-contract revenue, not equity integration. Realistic uplift 30-50 bps EBITDA margin. We should not over-claim"],
-        ["Sponsor-to-sponsor exit universe is thin",
-         "6-10 credible bidders (Triton, IK, Adelis, Cinven, Norvestor under different fund vintage, Verdane, FSN) plus strategics (international FM majors, post-Norvestor PHM)"],
-        ["Roll-up depends on cheap bolt-on multiples that won't last",
-         "If supply tightens and bolt-on multiples drift, we slow the M&A pace and lean on organic and margin levers. Buy-vs-build spread of 3 turns is still investable"],
-    ],
-    widths_cm=[7.5, 9.5])
-
-
-# --------------------------------------------------------------------------------------
-# 8. CRITICAL PATH
-# --------------------------------------------------------------------------------------
-h1(doc, "8.  Critical Path to IC")
-
-build_table(doc,
-    headers=["Workstream", "Target timing", "Decision gate"],
-    rows=[
-        ["Management access - Din Vaktmester (preferred anchor)", "Q3 2026",
-         "Founder posture on sale within 24 months; integration capacity assessment"],
-        ["Management access - Vaktmesterkompaniet (acceptable anchor)", "Q3 2026",
-         "Confirm PHM not in advanced dialogue; founder valuation expectation"],
-        ["Management access - Insider Group (tactical anchor)", "Q4 2026",
-         "Mitie integration trajectory; property-maintenance share of revenue"],
-        ["Bolt-on long-list dilligence (top 15-20 named)", "Q4 2026",
-         "Validate 5-year pipeline of NOK 600-900m acquired revenue"],
-        ["Sector commercial diligence (third-party, scoped)", "Q4 2026",
-         "TAM validation; PHM acquisition pace; bolt-on multiple discipline"],
-        ["Sweden market scan (fastighetsskötsel)", "Q4 2026",
-         "Cross-border optionality via Ocab introductions"],
-        ["PHM exit timing intelligence", "Ongoing",
-         "Norvestor process kick-off signal"],
-        ["Regulatory diligence (allmenngjøring, wage trajectory)", "Q1 2027",
-         "No step-change risk in next 24 months"],
-    ],
-    widths_cm=[6.5, 2.5, 8.0])
-
-h3(doc, "Conditions for advancing to full IC")
-bullet(doc, "Confirmed management access on at least one anchor candidate.")
-bullet(doc, "Indicative entry multiple <8.5x on the anchor.")
-bullet(doc, "Pre-cleared bolt-on pipeline of >NOK 250m revenue for Y1-Y2.")
-bullet(doc, "Third-party validation of TAM and PHM positioning.")
-
-
-# --------------------------------------------------------------------------------------
-# 9. WHAT WE'D NEED TO VALIDATE
-# --------------------------------------------------------------------------------------
-h1(doc, "9.  What We'd Need to Validate Before IC")
-
-build_table(doc,
-    headers=["Item", "Why it matters", "Source"],
-    rows=[
-        ["Anchor candidate detailed financials FY22-24", "Sets entry valuation and integration baseline",
-         "Proff.no, Brønnøysundregistrene, management approach"],
-        ["PHM Norway segment P&L and bolt-on cadence", "Competitive intelligence on supply and pricing",
-         "Norvestor exit prep marketing material (once process starts); banker intel"],
-        ["Bolt-on pipeline scoring (top 20 named targets)", "Realism check on 5-year construction plan",
-         "Per-name diligence; Proff.no filings; owner outreach"],
-        ["Labour cost trajectory 2026-2030", "Margin guard rails",
-         "Statistics Norway, NHO Service og Handel forecasts"],
-        ["Customer-side reference checks", "Validate switching costs and tendering dynamics",
-         "5-10 housing-association and commercial property managers"],
-        ["Sweden fastighetsskötsel landscape", "Cross-border optionality",
-         "Separate scan (~3 weeks of work); Ocab introductions"],
-        ["Anchor management team integration capability", "Roll-up depends on this; weak team is fatal",
-         "Reference checks, prior bolt-on track record review"],
-    ],
-    widths_cm=[5.5, 5.5, 6.0])
-
-
-# --------------------------------------------------------------------------------------
-# 10. CONCLUDING VIEW
-# --------------------------------------------------------------------------------------
-h1(doc, "10.  Concluding View")
-
-body(doc,
-    "This is a roll-up construction, not the acquisition of a finished #2 platform. "
-    "The market thesis is correct: Nordic property maintenance is structurally "
-    "attractive, fragmented, recurring, and regulation-shielded, with PHM at <5% share "
-    "leaving the majority of the market open. Norvestor's PHM trajectory has de-risked "
-    "the playbook.")
-
-body(doc,
-    "The honest weakness is execution dependence. The construction relies on (a) landing "
-    "a founder-led anchor at disciplined entry, and (b) closing 25-40 bolt-ons across a "
-    "supply set where PHM is the prime competing acquirer. The right-to-win narrative "
-    "(commercial / mid-Norway / pan-Nordic tilt, Nimlas and Ocab adjacencies) is real, "
-    "but it must be operationalised - not over-claimed in IC.")
-
-body(doc,
-    "Decision sought from screening committee: approval to dedicate one full-time "
-    "origination resource and a modest sector commercial diligence budget "
-    "(NOK 1.5-2.5m external) over Q3-Q4 2026. Mandatory re-screening checkpoint "
-    "at end-Q4 2026 conditional on management access at one of the three named anchor "
-    "candidates and validated bolt-on pipeline of NOK 250m+ revenue for years 1-2.")
-
-
-# --------------------------------------------------------------------------------------
+# ====================================================================================
 # APPENDICES
-# --------------------------------------------------------------------------------------
-h1(doc, "Appendix A - Screening Universe")
-
-bullet(doc, "Total Norwegian entities screened: 75 verified names (post-trim from 140).")
-bullet(doc, "Anchor candidates: 3 (Vaktmesterkompaniet, Din Vaktmester, Insider Group).")
-bullet(doc, "Tier-1 named bolt-ons (NOK 100-400m revenue): 15.")
-bullet(doc, "Tier-2 bolt-ons (NOK 30-100m revenue): 35-50 across the screen.")
-bullet(doc, "Companion file: Norway_FM_Property_Services_PE_Screen.xlsx (4 tabs: Company overview, Financials, Fit vs PHM, PE angle).")
-
-h1(doc, "Appendix B - Key Assumptions and Limitations")
+# ====================================================================================
+h1(doc, "Appendix A - Sources and Limitations")
 
 bullet(doc,
-    "Revenue and EBITDA figures for non-listed AS-level entities are largely analyst "
-    "estimates triangulated from BoldData FY23 top-50 ranking, sector margin medians "
-    "(6-9% cleaning, 8-10% janitor), and applied CAGR. Verification in Proff.no / "
-    "Brønnøysundregistrene required before any IOI.")
+    "Screening universe: 75 verified Norwegian property service / FM / cleaning entities, "
+    "compiled from BoldData FY23 top-50 ranking, PE press releases, Konkurransetilsynet "
+    "filings, PHM Annual Report 2024, and Proff.no / Brønnøysundregistrene. Full screen "
+    "in companion file Norway_FM_Property_Services_PE_Screen.xlsx.")
 bullet(doc,
-    "TAM ranges reflect analyst triangulation against the brief's NOK 15-25bn baseline; "
-    "not externally validated.")
+    "PHM Group revenue (EUR 600-800m) inferred from Norvestor commentary and Norwegian "
+    "subsidiary filings. PHM does not publicly disclose Norwegian segment results.")
 bullet(doc,
-    "PHM Norway revenue and EBITDA inferred from Norwegian subsidiary filings; PHM Group "
-    "does not publicly disclose Norwegian segment results.")
+    "Bolt-on multiple ranges (4-6x for sub-NOK 100m, 6-8x for sub-NOK 200m) inferred from "
+    "PHM acquisition press releases and Nordic FM transaction comps 2021-2024; require "
+    "transaction-by-transaction validation before IC.")
 bullet(doc,
-    "Exit multiple ranges based on observed transactions in Nordic FM / services "
-    "2021-2024 (PHM bolt-ons, 4Service to Compass, Cares to Equip); subject to market "
-    "conditions.")
+    "TAM estimates triangulated against the brief's NOK 15-25bn Norway baseline; not "
+    "externally validated. Sweden TAM estimate is order-of-magnitude only and a Phase 1 "
+    "scan output, not an input.")
 bullet(doc,
-    "KLAR 4KQ, Triple A, and Key Characteristics Assessment framework applications "
-    "are the deal team's interpretation pending partner review.")
+    "Returns model is illustrative. Three cases (realistic, base, downside) are "
+    "internally consistent at the EBITDA and revenue level but should not be over-read; "
+    "real model requires anchor-specific assumptions.")
+bullet(doc,
+    "KLAR framework applications (4KQ, Triple A, KCA) reflect the deal team's "
+    "interpretation pending partner review.")
 
-h1(doc, "Appendix C - Glossary (Norwegian terms)")
+
+h1(doc, "Appendix B - Glossary")
 
 bullet(doc, "Vaktmester - janitor / building caretaker.")
 bullet(doc, "Eiendomsdrift - property operations.")
 bullet(doc, "Fastighetsskötsel - (Swedish) property care / janitorial.")
 bullet(doc, "Borettslag - housing cooperative; dominant residential ownership form in Norway.")
 bullet(doc, "Sameie - condominium-style co-ownership.")
-bullet(doc, "Allmenngjøring(sloven) - law extending collective wage agreement application to all workers in a sector; creates the labour-cost floor that disadvantages informal operators.")
-bullet(doc, "Renholdsoverenskomsten - the collective wage agreement for cleaning services.")
-bullet(doc, "NACE 81.10 / 81.21 - statistical sector codes for combined facilities support / general building cleaning.")
+bullet(doc, "Allmenngjøring(sloven) - law extending collective wage agreement application; creates the labour-cost floor that disadvantages informal operators.")
+bullet(doc, "Renholdsoverenskomsten - collective wage agreement for cleaning services.")
+bullet(doc, "NACE 81.10 / 81.21 - sector codes for combined facilities support / general building cleaning.")
+bullet(doc, "PMI - post-merger integration.")
 
 
-# --------------------------------------------------------------------------------------
 # Save
-# --------------------------------------------------------------------------------------
 out_path = "/home/user/Pilot/output/Nordic_Property_Maintenance_Thesis.docx"
 doc.save(out_path)
 print(f"Saved: {out_path}")
